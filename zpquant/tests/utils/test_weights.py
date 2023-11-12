@@ -11,25 +11,38 @@ __authors__ = ['Deepak Singh <deepaksingh@zeroth-principles.com>']
 import pytest
 import pandas as pd
 from functools import partial
-from zpquant.utils.weights import DW_g_RW
-from zputils.dataframe import RandomReturn
+from zpquant.utils.weights import PPW_g_RW, PPW_g_RW_g_R
 import numpy as np
+from datetime import datetime
+from zpquant.utils.returns import CumulativeReturn_g_AnchorIndex
 
 @pytest.fixture
-def sample_operand():
-    rr = RandomReturn(params={'seed': 0, 'freq': 'W-MON', 'distribution': partial(np.random.uniform, low=0.0, high=1.0)})
-    return rr(entities=['Asset1', 'Asset2'], period=('2022-01-01', '2022-01-30'))
+def sample_weights():
+    date_rng = pd.date_range(start='2022-01-01', end='2022-01-10', freq='B')
+    weights = pd.DataFrame({'A': np.random.rand(len(date_rng)),
+                            'B': np.random.rand(len(date_rng))},
+                            index=date_rng)
+    return weights
 
-def test_dw_g_rw_with_valid_operand(sample_operand):
-    func = DW_g_RW()
-    result = func(operand=sample_operand)
-    assert isinstance(result, pd.DataFrame)
-    assert result.shape == (15, 2)
-    assert 'Asset1' in result.columns
-    assert 'Asset2' in result.columns
+@pytest.fixture
+def sample_returns(sample_weights):
+    returns = sample_weights.pct_change().fillna(0)
+    return returns
 
-def test_dw_g_rw_without_operand():
-    func = DW_g_RW()
-    with pytest.raises(ValueError, match="operand cannot be None!"):
-        func(operand=None, period=('2022-01-01', '2022-01-30'))
-    
+def test_ppw_g_rw_basic(sample_weights):
+    params = {'BOD': False, 'freq': 'B'}
+    dw_g_rw = PPW_g_RW(params)
+    result = dw_g_rw(operand= sample_weights)
+    expected = sample_weights
+    pd.testing.assert_frame_equal(result , expected)
+
+def test_ppw_g_rw_g_r_basic(sample_weights, sample_returns):
+    params = {'BOD': True, 'freq': 'B', "return": sample_returns}
+    operand = sample_weights
+
+    result =  PPW_g_RW_g_R()(operand=operand, params=params)
+    cumulative_ret = CumulativeReturn_g_AnchorIndex()(sample_returns, params = dict(index = sample_weights.index))
+    expected = sample_weights.fillna(0).multiply(1 + cumulative_ret)
+    expected.loc[sample_weights.index, :] = sample_weights
+    expected = expected.shift(1).dropna(how="all", axis=0)
+    pd.testing.assert_frame_equal(result, expected)

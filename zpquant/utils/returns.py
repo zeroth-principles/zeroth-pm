@@ -13,7 +13,7 @@
 #  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 #  A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 #  You should have received a copy of the GNU General Public License along with
-#  Zeroth-Quant. If not, see <http://www.gnu.org/licenses/>.f
+#  Zeroth-Quant. If not, see <http://www.gnu.org/licenses/>.
 
 
 """Weights util file contains ops related to transforming/aggregating weights across cross-sectionally and vertically."""
@@ -26,25 +26,26 @@ __email__ = 'engineering@zeroth-principles.com'
 __authors__ = ['Deepak Singh <deepaksingh@zeroth-principles.com>']
 
 import pandas as pd
-from zpmeta.superclasses.panelcachedsource import PanelCachedSource
-from zpmeta.superclasses.functionclass import FunctionClass
-from zpmeta.metaclasses.singletons import MultitonMeta
+from zpmeta.funcs.func import Func
 from pandas import DataFrame, Series, concat, MultiIndex, date_range, IndexSlice
 import numpy as np
 from datetime import datetime
 import logging
 
 
-class CumulativeReturn_g_index(FunctionClass):
+class CumulativeReturn_g_AnchorIndex(Func):
     """
     Function class for calculating the cumulative return from daily returns give index.
     """
-    def __check_consistency(self):
-        if "index" not in self.params:
-            raise ValueError("grouping index should be specified")
+    @staticmethod
+    def _check_consistency(operand=None, params: dict = None):
+        if operand is None:
+            raise ValueError("operand cannot be None!")
         
+        if "index" not in params.keys():
+            raise KeyError("Please provide anchor index")
              
-    def execute(self, operand: pd.DataFrame =None, period: tuple = None, params: dict = None) -> object:
+    def _execute(self, operand: pd.DataFrame =None, params: dict = None) -> object:
         """
 
         Parameters
@@ -61,14 +62,17 @@ class CumulativeReturn_g_index(FunctionClass):
         pd.DataFrame
             The output is a DataFrame of daily weights.
         """
-        self.__check_consistency()
-        index = pd.Index(self.params["index"])
-        if period is None:
+        anchor_index = params["index"]
+
+        if "period" not in params.keys():
             period = (operand.index[0], operand.index[-1])
-        temp = operand.truncate(period[0], period[1])
+        
+        ret_temp = operand.truncate(period[0], period[1])
         all_index =  pd.date_range(period[0], period[1], freq="B")
-        temp = temp.reindex(all_index).fillna(0.0)
-        return_grouped = (1+temp).groupby(index.searchsorted(temp.index)).cumprod() - 1
+        ret_temp = ret_temp.reindex(all_index).fillna(0.0)
+        return_grouped = (1+ret_temp).groupby(anchor_index.searchsorted(ret_temp.index)).cumprod() - 1
+        # after groupby names are getting removed from columns
+        return_grouped.columns = ret_temp.columns
         return_grouped = return_grouped.fillna(0.0)
         return return_grouped
     
