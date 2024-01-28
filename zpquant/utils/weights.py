@@ -55,7 +55,7 @@ class PPW_g_RW(Func):
         """
         return dict(BOD = True, freq = "B")
     @staticmethod
-    def _check_consistency(operand=None, params: dict = None):
+    def check_consistency(operand=None, params: dict = None):
         if operand is None:
             raise ValueError("operand cannot be None!")
     
@@ -102,10 +102,10 @@ class PPW_g_RW_g_R(Func):
             return_param: callable or params dict
                 If callable then directly called otherwise currently not implemented
         """
-        return dict(BOD = True, freq = "B", return_param = SimulatedDataFrame(params=dict(seed=0, freq="B", distribution = partial(np.random.normal, loc=0.0, scale=1))))
+        return dict(BOD = True, freq = "B", return_param = SimulatedDataFrame(params=dict(seed=0, freq="B", distribution = partial(np.random.normal, loc=0.0, scale=0.05))))
 
     @staticmethod
-    def _check_consistency(operand, params):
+    def check_consistency(operand: pd.DataFrame =None, params: dict = None):
         if operand is None:
             raise ValueError("operand cannot be None!")
         

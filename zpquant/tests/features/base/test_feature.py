@@ -15,7 +15,7 @@
 #  You should have received a copy of the GNU General Public License along with
 #  Zeroth-Meta. If not, see <http://www.gnu.org/licenses/>.
 
-"""test_weights file contains test cases for weights util file in zpquant"""
+"""test_feature file contains test cases for EQFactor and FUFactor class in feature.py"""
 
 __copyright__ = '2023 Zeroth Principles Research'
 __license__ = 'GPLv3'
@@ -24,25 +24,21 @@ __author__ = 'Zeroth Principles Engineering'
 __email__ = 'engineering@zeroth-principles.com'
 __authors__ = ['Deepak Singh <deepaksingh@zeroth-principles.com>']
 
-
 import pytest
-import pandas as pd
-import numpy as np
-from functools import partial
-from zpquant.utils.returns import CumulativeReturn_g_AnchorIndex
-from zputils.dataframes.simulated import SimulatedDataFrame
-from pandas import testing as tm
+from zpquant.features.base.feature import EQFactor, FUFactor
 
+@pytest.fixture
+def eq_factor():
+    return EQFactor(params=None)
 
-def test_cumulative_return_with_valid_input():
-    rr = SimulatedDataFrame(params={'seed': 0, 'freq': 'B', 'distribution': partial(np.random.normal, loc=0.0, scale=0.05)})
-    operand = rr(entities=['A', 'B'], period=('2022-01-01', '2022-01-30'))
+@pytest.fixture
+def fu_factor():
+    return FUFactor(params=None)
 
-    func = CumulativeReturn_g_AnchorIndex(params = dict(index = pd.date_range('2022-01-01', '2022-01-30', freq='w-MON')))
-    result = func(operand= (operand))
-    # Assert based on expected output
-    assert isinstance(result, pd.DataFrame)
-    assert len(result)==20
-    # last_data = pd.Series({'A': -0.004047, 'B': -0.009475}, name = pd.to_datetime('2022-01-28'))
-    # assert result.iloc[-1].val==last_data
+def test_eq_factor_init(eq_factor):
+    assert isinstance(eq_factor, EQFactor)
+
+def test_fu_factor_init(fu_factor):
+    assert isinstance(fu_factor, FUFactor)
+
 

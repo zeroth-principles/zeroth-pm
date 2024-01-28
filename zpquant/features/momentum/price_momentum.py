@@ -35,13 +35,13 @@ from zpmeta.singletons.singletons import MultitonMeta
 from zputils.dataframes.simulated import SimulatedDataFrame
 from zputils.dict.update import deep_update
 from pandas.tseries.offsets import BDay
-
+from zpquant.features.base.feature import EQFactor, FUFactor
 
 class PriceMomentum_g_Returns(Func):
     """
     Function class for calculating the price momentum given returns.
     """
-    def std_params(self, name: str = None) -> dict:
+    def _std_params(self, name: str = None) -> dict:
         """
         Standard parameters for the function class.
         return: dict
@@ -50,53 +50,17 @@ class PriceMomentum_g_Returns(Func):
             
             axis : {0 or 'index', 1 or 'columns'}, default 1
         """
-        return dict(lookback_period=252, axis=1)
+        return dict(lookback_period=252, axis=0)
     
     def _execute(self, operand: pd.DataFrame =None, params: dict = None) -> object:
-        momentum = operand.rolling(window=params["lookback_period"], axis = params["axis"]).apply(lambda x: np.prod(1+x)-1, raw=True)
+        momentum = operand.rolling(window=params["lookback_period"], axis = params["axis"], 
+                                   min_periods=int(0.5 * params["lookback_period"])).apply(
+                                       lambda x: np.prod(1+x)-1, raw=True).dropna(how="all")
         return momentum
 
-class PriceMomentum(PanelSource, metaclass=MultitonMeta):
-    '''Subclasses PanelCachedSource to calculate momentum feature values.'''
-    def __init__(self, params: dict = None):
-        """
-        params: dict
-            lookback_period : int
-                Number of days to look back for calculating the momentum
-            
-            axis : {0 or 'index', 1 or 'columns'}, default 1
 
-            asset_class: str
-                Asset class for which the feature value is calculated.
-        """
-        super(PriceMomentum, self).__init__(params)
-        self.appendable = dict(xs=True, ts=True)
-             
-    def _execute(self, entities=None, period=None):
-        data_period = (period[0] - BDay(self.params["lookback_period"]), period[1])
-        # call return here
-        if entities is None:
-            return_df = SimulatedDataFrame(params=dict(seed=0, freq="B", distribution = partial(np.random.normal, loc=0.0, scale=1)))(entities=entities, period=data_period)
-            momentum_df = PriceMomentum_g_Returns(params= self.params)(return_df)
-        elif self.params["asset_class"] == "EQ":
-            # get eq returns
-            raise NotImplementedError
-        elif self.params["asset_class"] == "FU":
-            # get eq returns
-            raise NotImplementedError
-        elif self.params["asset_class"] == "FX":
-            # get eq returns
-            raise NotImplementedError
-        else:
-            raise NotImplementedError
-        
-        
-        momentum_df = PriceMomentum_g_Returns(params= self.params)(return_df)
-        return momentum_df
-
-
-class EQPriceMomentum(PanelSource, metaclass=MultitonMeta):
-    '''Subclasses PanelCachedSource to calculate momentum feature values.'''
+class EQPriceMomentum(EQFactor):
+    '''Subclasses Equity factor base class to calculate momentum feature values.'''
     def __init__(self, params: dict = None):
         """
         params: dict
@@ -112,10 +76,18 @@ class EQPriceMomentum(PanelSource, metaclass=MultitonMeta):
         self.appendable = dict(xs=True, ts=True)
              
     def _execute(self, entities=None, period=None):
-        return PriceMomentum(params= deep_update(self.params, dict(asset_class = "EQ")))(entities=entities, period=period)
+        data_period = (period[0] - BDay(self.params["lookback_period"]), period[1])
+        if self.params.get("simulation", False):
+            return_df = SimulatedDataFrame(params=dict(seed=0, freq="B", distribution = partial(np.random.normal, loc=0.0, scale=0.05)))(entities=entities, period=data_period)
+        else:
+            # get eq returns
+            raise NotImplementedError("Equity returns not implemented yet")
+        momentum_df = PriceMomentum_g_Returns(params= self.params)(return_df)
+        
+        return momentum_df
 
-class FUPriceMomentum(PanelSource, metaclass=MultitonMeta):
-    '''Subclasses PanelCachedSource to calculate momentum feature values.'''
+class FUPriceMomentum(FUFactor):
+    '''Subclasses Future factor to calculate momentum feature values.'''
     def __init__(self, params: dict = None):
         """
         params: dict
@@ -131,4 +103,12 @@ class FUPriceMomentum(PanelSource, metaclass=MultitonMeta):
         self.appendable = dict(xs=True, ts=True)
              
     def _execute(self, entities=None, period=None):
-        return PriceMomentum(params= deep_update(self.params, dict(asset_class = "FU")))(entities=entities, period=period)
+        data_period = (period[0] - BDay(self.params["lookback_period"]), period[1])
+        if self.params.get("simulation", False):
+            return_df = SimulatedDataFrame(params=dict(seed=0, freq="B", distribution = partial(np.random.normal, loc=0.0, scale=0.05)))(entities=entities, period=data_period)
+        else:
+            # get eq returns
+            raise NotImplementedError("Future returns not implemented yet")
+        momentum_df = PriceMomentum_g_Returns(params= self.params)(return_df)
+        
+        return momentum_df

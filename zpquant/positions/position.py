@@ -32,33 +32,45 @@ from zpmeta.sources.panelsource import PanelSource
 from zpmeta.singletons.singletons import MultitonMeta
 from zpquant.positions.calculators import *
 from zpquant.signals.signal import Signal
-from zpquant.positions.mapping import weightMapping
+from zpquant.positions.mapping import weight_mapping
 
 class Position(PanelSource, metaclass=MultitonMeta):
-    '''Subclasses PanelCachedSource to transform the feature values based on the input.'''
+    '''
+    Subclasses PanelCachedSource to transform the signal values to positions.
+    
+    Attributes:
+            signal_params: dict
+                Parameters to run the signal. 
+                Example: {{"feature_name": "EQPriceMomentum", "feature_params": {"lookback_period": 12, axis = 0}, 
+                         "transform_pipeline": {"zscoreXS": None}}}
+    
+            weighting_pipeline: dict
+                Parameters to transform the signal value to position. Example: {"dollar_neutral": None}
+    
+    '''
     def __init__(self, params: dict = None):
         super(Position, self).__init__(params)
         self.appendable = dict(xs=True, ts=True)
 
     @staticmethod
-    def _check_consistency(params):
-        if "signalParams" not in params.keys():
+    def check_consistency(params):
+        if "signal_params" not in params.keys():
             raise KeyError("Please provide the config to run the signal")
         
-        if "weightingPipeline" not in params.keys():
+        if "weighting_pipeline" not in params.keys():
             raise KeyError("Please provide the weighting method for calculating positions")
             
-        if not isinstance(params["weightingPipeline"], dict):
-            raise ValueError("weightingPipeline should be a list of weighting methods dictionaries")
+        if not isinstance(params["weighting_pipeline"], dict):
+            raise ValueError("weighting_pipeline should be a dict")
                 
     def _execute(self, entities=None, period=None):
         # get signal value
-        signal_value = Signal(params = self.params["signalParams"])(entities=entities, period=period)
+        signal_value = Signal(params = self.params["signal_params"])(entities=entities, period=period)
 
         position_value = signal_value.copy()
         # apply weighting methodology
-        for weighting_method in self.params["weightingPipeline"].keys():
-            position_value = weightMapping[weighting_method](params = self.params["weightingPipeline"][weighting_method])(position_value)
+        for weighting_method in self.params["weighting_pipeline"].keys():
+            position_value = weight_mapping[weighting_method](params = self.params["weighting_pipeline"][weighting_method])(position_value)
 
         return position_value
     

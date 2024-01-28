@@ -38,7 +38,7 @@ class CumulativeReturn_g_AnchorIndex(Func):
     Function class for calculating the cumulative return from daily returns give index.
     """
     @staticmethod
-    def _check_consistency(operand=None, params: dict = None):
+    def check_consistency(operand=None, params: dict = None):
         if operand is None:
             raise ValueError("operand cannot be None!")
         

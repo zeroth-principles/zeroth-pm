@@ -15,7 +15,7 @@
 #  You should have received a copy of the GNU General Public License along with
 #  Zeroth-Meta. If not, see <http://www.gnu.org/licenses/>.
 
-"""test_weights file contains test cases for weights util file in zpquant"""
+"""test_signal file contains test cases for signal class in signal.py"""
 
 __copyright__ = '2023 Zeroth Principles Research'
 __license__ = 'GPLv3'
@@ -23,26 +23,29 @@ __docformat__ = 'google'
 __author__ = 'Zeroth Principles Engineering'
 __email__ = 'engineering@zeroth-principles.com'
 __authors__ = ['Deepak Singh <deepaksingh@zeroth-principles.com>']
-
-
 import pytest
-import pandas as pd
-import numpy as np
-from functools import partial
-from zpquant.utils.returns import CumulativeReturn_g_AnchorIndex
-from zputils.dataframes.simulated import SimulatedDataFrame
-from pandas import testing as tm
+from zpquant.signals.signal import Signal
+from datetime import datetime
 
+class TestSignal:
+    def test_check_consistency(self):
+        params = {
+            "feature_name": "EQPriceMomentum",
+            "feature_params": {"lookback_period": 12, "axis": 0},
+            "transform_pipeline": {"zscoreXS": None}
+        }
+        signal = Signal(params=params)
+        assert signal.check_consistency(params) == True
 
-def test_cumulative_return_with_valid_input():
-    rr = SimulatedDataFrame(params={'seed': 0, 'freq': 'B', 'distribution': partial(np.random.normal, loc=0.0, scale=0.05)})
-    operand = rr(entities=['A', 'B'], period=('2022-01-01', '2022-01-30'))
-
-    func = CumulativeReturn_g_AnchorIndex(params = dict(index = pd.date_range('2022-01-01', '2022-01-30', freq='w-MON')))
-    result = func(operand= (operand))
-    # Assert based on expected output
-    assert isinstance(result, pd.DataFrame)
-    assert len(result)==20
-    # last_data = pd.Series({'A': -0.004047, 'B': -0.009475}, name = pd.to_datetime('2022-01-28'))
-    # assert result.iloc[-1].val==last_data
-
+    def test_execute(self):
+        entities = dict(A = ['AAPL', 'GOOG'])
+        period = (datetime(2022, 1, 1), datetime(2022, 1, 30))
+        params = {
+            "feature_name": "EQPriceMomentum",
+            "feature_params": {"lookback_period": 12, "axis": 0, "simulation": True},
+            "transform_pipeline": {"zscoreXS": None, "rankTS": None}
+        }
+        signal = Signal(params=params)
+        signal_value = signal(entities=entities, period=period)
+        assert len(signal_value) == 30
+        

@@ -27,57 +27,67 @@ __authors__ = ['Deepak Singh <deepaksingh@zeroth-principles.com>']
 
 import pandas as pd
 import numpy as np
-from zpmeta.funcs.func import Func
 from zpmeta.sources.panelsource import PanelSource
 from zpmeta.singletons.singletons import MultitonMeta
-from zpquant.signals.mapping import featureMapping
+from zpquant.signals.mapping import feature_mapping, signal_calculation_mapping
 from zpquant.signals.calculators import *
 
 
 class Signal(PanelSource, metaclass=MultitonMeta):
-    '''Subclasses PanelCachedSource to transform the feature values based on the input.'''
+    '''
+    Subclasses PanelCachedSource to transform the feature values based on the input.
+
+    Attributes:
+            feature_name: str
+                Name of the feature. Example: "EQPriceMomentum"
+
+            feature_params: dict
+                Parameters to run the feature. Example: {"lookback_period": 12, axis = 0}
+
+            transform_pipeline: dict
+                Parameters to transform the feature value. Example: {"zscoreXS": None}
+
+    Methods:
+            check_consistency: method
+                Check the consistency of the input parameters
+
+            _execute: method
+                Execute the signal calculation
+
+    Examples:
+            # to calculate cross-sectional zscore of 12 day price momentum
+            >>> from zpquant.signals.signal import Signal
+            >>> signal = Signal(params = {"feature_name": "EQPriceMomentum", "feature_params": {"lookback_period": 12, axis = 0}, "transform_pipeline": {"zscoreXS": None}})
+            >>> signal(entities=entities, period=period)
+     
+    '''
     def __init__(self, params: dict = None):
         super(Signal, self).__init__(params)
         self.appendable = dict(xs=True, ts=True)
 
     @staticmethod
-    def _check_consistency(params):
-        if "featureName" not in params.keys():
+    def check_consistency(params):
+        if "feature_name" not in params.keys():
             raise KeyError("Please provide the name of the feature")
         
-        if "featureParams" not in params.keys():
+        if "feature_params" not in params.keys():
             raise KeyError("Please provide the config to run the feature")
         
-        if "transform" not in params.keys():
+        if "transform_pipeline" not in params.keys():
             raise KeyError("Please provide the transform params. If None then feature value will be taken as it is.")
+        
+        if not isinstance(params["transform_pipeline"], dict):
+            raise ValueError("transform_pipeline should be a dict")
+        return True
              
     def _execute(self, entities=None, period=None):
-        featureValue = featureMapping[self.params["featureName"]](self.params["featureParams"])(entities=entities, period=period)
+        signal_value = feature_mapping[self.params.get("feature_name")](self.params.get("feature_params"))(entities=entities, period=period)
 
-        if self.params["transform"] is None:
-            return featureValue
-        elif self.params["transform"] == "zscoreXS":
-            # do cross-sectional zscore
-            signalValue = ZscoreSignal(params = self.params)(operand=featureValue, params=dict(axis=1))
-            
-        elif self.params["transform"] == "zscoreTS":
-            # do time series zscore
-            signalValue = ZscoreSignal(params = self.params)(operand=featureValue, params=dict(axis=0))
-        elif self.params["transform"] == "rankXS":
-            # do cross-sectional ranking
-            signalValue = RankSignal(params = self.params)(operand=featureValue, params=dict(axis=1))
-        elif self.params["transform"] == "rankTS":
-            # do time series ranking
-            signalValue = RankSignal(params = self.params)(operand=featureValue, params=dict(axis=0))
-        elif self.params["transform"] == "equal":
-            # do equal weighting
-            raise NotImplementedError
-        elif self.params["transform"] == "value":
-            # do equal weighting
-            signalValue = featureValue.copy()
-        else:
-            # do equal weighting
-            raise NotImplementedError
-        
+        # apply weighting methodology
+        for transformation in self.params["transform_pipeline"].keys():
+            try:
+                signal_value = signal_calculation_mapping[transformation](params = self.params["transform_pipeline"].get(transformation))(signal_value)
+            except KeyError:
+                raise KeyError("Please provide the correct transformation name")
 
-        return signalValue
+        return signal_value
